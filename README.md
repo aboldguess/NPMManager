@@ -1,40 +1,55 @@
 # NPMManager
 
-This project provides a simple Tkinter GUI for managing multiple NPM projects. It allows you to start servers on specific ports, update each project using `git pull origin main`, and view console output in one place.
+This application provides a PySide6 GUI for managing multiple NPM projects. Each
+project can be updated from git, launched on a specific port, and stopped from
+the interface. Configuration is stored in `projects.json`.
 
 ## Configuration
 
-Projects are defined in `projects.json` as a list of entries:
+Projects are listed in `projects.json` as follows:
 
 ```json
 {
   "projects": [
     {
       "name": "project1",
-      "path": "c:/code/project1",
-      "command": "npm start",
+      "path": "/path/to/project1",
+      "commands": ["npm start"],
       "port": 3000
     }
   ]
 }
 ```
 
-- `name` – display name for the project
-- `path` – path to the folder containing the project
-- `command` – command to start the server (for example `npm start` or `npm run dev`)
-- `port` – port number to set in the `PORT` environment variable when running the command
+- `name` – display name for the project.
+- `path` – folder containing the project.
+- `commands` – list of commands to launch the project. Each runs with the
+  `PORT` environment variable set.
+- `port` – port number to use when launching.
 
-Edit this file to match your projects.
+Edit this file or use the **Add Project** button in the GUI to manage your
+projects.
 
 ## Usage
 
-1. Install Python 3.x.
+1. Install Python 3.x and the `PySide6` package.
 2. Run the manager with:
 
 ```bash
 python3 manager.py
 ```
 
-The GUI shows each project with **Start**, **Stop**, and **Update** buttons. Clicking **Start** runs the project's command with `PORT` set to the specified value. **Update** runs `git pull origin main` in the project directory.
+The main window lists all configured projects. For each project you can:
 
-This application requires a graphical environment to display the Tkinter window.
+- **Update** – run `git pull origin main` in the project directory.
+- **Configure** – edit the commands used to launch the project.
+- **Set port** – change the port passed to `npm` via the `PORT` environment
+  variable.
+- **Launch** – run `npm install` followed by the configured commands.
+- **Stop** – terminate all running commands for that project.
+
+A log view at the bottom of the window displays progress output from all
+processes.
+
+This application requires a graphical environment capable of running Qt
+applications.
