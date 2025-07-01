@@ -30,10 +30,15 @@ Projects are listed in `projects.json` as follows:
 Edit this file or use the **Add Project** button in the GUI to manage your
 projects.
 
+## Setup
+
+Run the provided `install.ps1` script from PowerShell to verify that all
+dependencies are available. The script checks for Python 3, pip, Node.js and git
+and installs the Python packages listed in `requirements.txt`.
+
 ## Usage
 
-1. Install Python 3.x and the `PySide6` package.
-2. Run the manager with:
+After the dependencies are installed, start the manager with:
 
 ```bash
 python3 manager.py
