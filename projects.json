@@ -1,15 +1,11 @@
 {
   "projects": [
     {
-      "name": "project1",
       "path": "/path/to/project1",
-      "commands": ["npm start"],
       "port": 3000
     },
     {
-      "name": "project2",
       "path": "/path/to/project2",
-      "commands": ["npm run dev"],
       "port": 5000
     }
   ]
