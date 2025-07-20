@@ -58,9 +58,14 @@ For every configured project you can:
 - **Run** – start the project with `pm2` using `npm start` and the selected port.
 - **Stop** – stop the running PM2 process.
 - **Change Name** – set a custom name for the PM2 process.
-- **Env** – configure additional environment variables.
+- **Edit Env** – configure additional environment variables.
 
-New projects can be added using the **Add Project** button. When adding a
-project you will be prompted for environment variables in `KEY=VALUE` format.
+Projects can be added either from the **File** menu or using the **Add Project**
+button. When adding a project you will be prompted for environment variables in
+`KEY=VALUE` format. The project list now resides in a scrollable area so large
+setups remain usable.
+
+Use the **Clear Log** action from the menu or the button next to the log output
+to quickly empty the log display.
 
 The application requires a graphical environment capable of running Qt applications.
