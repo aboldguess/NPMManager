@@ -140,12 +140,20 @@ class ProjectRow(QWidget):
         cmd = ["git", "pull", "origin", "main"]
         self.status_label.setText("Updating...")
         self.log_cb(f"Running: {' '.join(cmd)} in {self.project.path}")
-        result = subprocess.run(
-            cmd,
-            cwd=self.project.path,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self.project.path,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError:
+            # git executable could not be located - show an error message
+            err = f"{cmd[0]} not found. Is it installed and on your PATH?"
+            self.log_cb(err)
+            self.status_label.setText("Error")
+            QMessageBox.critical(self, self.project.name, err)
+            return
         self.log_cb(result.stdout or result.stderr)
         self.status_label.setText("OK" if result.returncode == 0 else "Error")
         QMessageBox.information(self, self.project.name, result.stdout or result.stderr)
@@ -159,13 +167,21 @@ class ProjectRow(QWidget):
         cmd = ["pm2", "start", "npm", "--name", self.project.name, "--", "start"]
         self.status_label.setText("Running...")
         self.log_cb(f"Running: {' '.join(cmd)} in {self.project.path}")
-        result = subprocess.run(
-            cmd,
-            cwd=self.project.path,
-            env=env,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=self.project.path,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError:
+            # PM2 or npm could not be located. Inform the user and abort.
+            err = f"{cmd[0]} not found. Is it installed and on your PATH?"
+            self.log_cb(err)
+            self.status_label.setText("Error")
+            QMessageBox.critical(self, self.project.name, err)
+            return
         self.log_cb(result.stdout or result.stderr)
         self.status_label.setText("OK" if result.returncode == 0 else "Error")
 
@@ -175,11 +191,19 @@ class ProjectRow(QWidget):
         cmd = ["pm2", "stop", self.project.name]
         self.status_label.setText("Stopping...")
         self.log_cb(f"Running: {' '.join(cmd)}")
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+            )
+        except FileNotFoundError:
+            # pm2 command missing - cannot stop the process
+            err = f"{cmd[0]} not found. Is it installed and on your PATH?"
+            self.log_cb(err)
+            self.status_label.setText("Error")
+            QMessageBox.critical(self, self.project.name, err)
+            return
         self.log_cb(result.stdout or result.stderr)
         self.status_label.setText("OK" if result.returncode == 0 else "Error")
 
