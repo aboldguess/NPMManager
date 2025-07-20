@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -29,11 +29,14 @@ class Project:
 
     path: str
     port: int = 3000
+    # Optional PM2 process name override. When None the folder name is used.
+    custom_name: Optional[str] = None
 
     @property
     def name(self) -> str:
-        """Use the folder name as the PM2 process name."""
-        return os.path.basename(os.path.abspath(self.path))
+        """Return the PM2 process name."""
+        # Use the custom name if provided, otherwise fallback to folder name
+        return self.custom_name or os.path.basename(os.path.abspath(self.path))
 
 
 def load_projects(cfg_path: str) -> List[Project]:
@@ -42,12 +45,28 @@ def load_projects(cfg_path: str) -> List[Project]:
         return []
     with open(cfg_path) as fh:
         data = json.load(fh)
-    return [Project(p["path"], p.get("port", 3000)) for p in data.get("projects", [])]
+    # Map loaded JSON dictionaries to Project instances, preserving any
+    # custom name that was saved previously.
+    return [
+        Project(p["path"], p.get("port", 3000), p.get("name"))
+        for p in data.get("projects", [])
+    ]
 
 
 def save_projects(cfg_path: str, projects: List[Project]) -> None:
     """Persist project configuration to JSON."""
-    data = {"projects": [{"path": p.path, "port": p.port} for p in projects]}
+    # Serialize Project instances back to dictionaries, including the custom
+    # name only when it is explicitly set.
+    data = {
+        "projects": [
+            {k: v for k, v in {
+                "path": p.path,
+                "port": p.port,
+                "name": p.custom_name,
+            }.items() if v is not None}
+            for p in projects
+        ]
+    }
     with open(cfg_path, "w") as fh:
         json.dump(data, fh, indent=2)
 
@@ -67,6 +86,10 @@ class ProjectRow(QWidget):
         self.path_label = QLabel(project.path)
         layout.addWidget(self.path_label)
 
+        # Display the current PM2 process name
+        self.name_label = QLabel(project.name)
+        layout.addWidget(self.name_label)
+
         self.port_spin = QSpinBox()
         self.port_spin.setRange(1, 65535)
         self.port_spin.setValue(project.port)
@@ -80,6 +103,14 @@ class ProjectRow(QWidget):
         run_btn = QPushButton("Run")
         run_btn.clicked.connect(self._run)
         layout.addWidget(run_btn)
+
+        stop_btn = QPushButton("Stop")
+        stop_btn.clicked.connect(self._stop)
+        layout.addWidget(stop_btn)
+
+        rename_btn = QPushButton("Change Name")
+        rename_btn.clicked.connect(self._change_name)
+        layout.addWidget(rename_btn)
 
         # status label to display the last command outcome
         self.status_label = QLabel("Idle")
@@ -122,6 +153,31 @@ class ProjectRow(QWidget):
         self.log_cb(result.stdout or result.stderr)
         self.status_label.setText("OK" if result.returncode == 0 else "Error")
 
+    def _stop(self) -> None:
+        """Stop the PM2 process if it is running."""
+        # Invoke PM2 to stop the process by name
+        cmd = ["pm2", "stop", self.project.name]
+        self.status_label.setText("Stopping...")
+        self.log_cb(f"Running: {' '.join(cmd)}")
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+        )
+        self.log_cb(result.stdout or result.stderr)
+        self.status_label.setText("OK" if result.returncode == 0 else "Error")
+
+    def _change_name(self) -> None:
+        """Prompt the user for a new process name and save it."""
+        # Let the user enter a new name. If none is provided, keep the current
+        # one.
+        new_name, ok = QInputDialog.getText(self, "Process Name", "New name:", text=self.project.name)
+        if not ok or not new_name:
+            return
+        self.project.custom_name = new_name
+        self.name_label.setText(self.project.name)
+        self.save_cb()
+
 
 class MainWindow(QMainWindow):
     """Main application window for managing Node.js apps."""
@@ -157,13 +213,19 @@ class MainWindow(QMainWindow):
         self.log.appendPlainText(msg)
 
     def _add_project(self) -> None:
+        # Ask the user for a project directory
         path = QFileDialog.getExistingDirectory(self, "Select Node.js Project")
         if not path:
             return
+        # Ask for the port the app should listen on
         port, ok = QInputDialog.getInt(self, "Port", "Port:", 3000, 1, 65535)
         if not ok:
             return
-        project = Project(path, port)
+        # Ask for an optional PM2 process name
+        name, ok = QInputDialog.getText(self, "Process Name", "Process name:")
+        if not ok or not name:
+            name = None
+        project = Project(path, port, name)
         self.projects.append(project)
         self._add_project_row(project)
         self._save()

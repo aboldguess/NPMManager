@@ -9,12 +9,13 @@ Projects are stored in `projects.json`:
 ```json
 {
   "projects": [
-    { "path": "/path/to/app", "port": 3000 }
+    { "path": "/path/to/app", "port": 3000, "name": "my-app" }
   ]
 }
 ```
 
-Each entry defines the folder containing the Node.js project and the port to use when starting it.
+Each entry defines the folder containing the Node.js project, the port to use
+when starting it and an optional custom PM2 process name.
 
 ## Setup
 
@@ -42,6 +43,8 @@ For every configured project you can:
 
 - **Update** – run `git pull origin main` inside the project directory.
 - **Run** – start the project with `pm2` using `npm start` and the selected port.
+- **Stop** – stop the running PM2 process.
+- **Change Name** – set a custom name for the PM2 process.
 
 New projects can be added using the **Add Project** button.
 
