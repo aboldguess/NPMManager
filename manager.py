@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QSpinBox,
     QMessageBox,
+    QPlainTextEdit,
 )
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "projects.json")
@@ -54,10 +55,11 @@ def save_projects(cfg_path: str, projects: List[Project]) -> None:
 class ProjectRow(QWidget):
     """Widget row for a single project."""
 
-    def __init__(self, project: Project, save_cb):
+    def __init__(self, project: Project, save_cb, log_cb):
         super().__init__()
         self.project = project
         self.save_cb = save_cb
+        self.log_cb = log_cb
 
         layout = QHBoxLayout()
         self.setLayout(layout)
@@ -79,6 +81,10 @@ class ProjectRow(QWidget):
         run_btn.clicked.connect(self._run)
         layout.addWidget(run_btn)
 
+        # status label to display the last command outcome
+        self.status_label = QLabel("Idle")
+        layout.addWidget(self.status_label)
+
     def _port_changed(self, value: int) -> None:
         """Update the project port and save configuration."""
         self.project.port = value
@@ -86,23 +92,35 @@ class ProjectRow(QWidget):
 
     def _update(self) -> None:
         """Run 'git pull origin main' in the project directory."""
+        cmd = ["git", "pull", "origin", "main"]
+        self.status_label.setText("Updating...")
+        self.log_cb(f"Running: {' '.join(cmd)} in {self.project.path}")
         result = subprocess.run(
-            ["git", "pull", "origin", "main"],
+            cmd,
             cwd=self.project.path,
             capture_output=True,
             text=True,
         )
+        self.log_cb(result.stdout or result.stderr)
+        self.status_label.setText("OK" if result.returncode == 0 else "Error")
         QMessageBox.information(self, self.project.name, result.stdout or result.stderr)
 
     def _run(self) -> None:
         """Launch the app via PM2 using 'npm start'."""
         env = os.environ.copy()
         env["PORT"] = str(self.project.port)
-        subprocess.run(
-            ["pm2", "start", "npm", "--name", self.project.name, "--", "start"],
+        cmd = ["pm2", "start", "npm", "--name", self.project.name, "--", "start"]
+        self.status_label.setText("Running...")
+        self.log_cb(f"Running: {' '.join(cmd)} in {self.project.path}")
+        result = subprocess.run(
+            cmd,
             cwd=self.project.path,
             env=env,
+            capture_output=True,
+            text=True,
         )
+        self.log_cb(result.stdout or result.stderr)
+        self.status_label.setText("OK" if result.returncode == 0 else "Error")
 
 
 class MainWindow(QMainWindow):
@@ -125,9 +143,18 @@ class MainWindow(QMainWindow):
         add_btn.clicked.connect(self._add_project)
         self.vbox.addWidget(add_btn)
 
+        # log widget displays executed commands and their output
+        self.log = QPlainTextEdit()
+        self.log.setReadOnly(True)
+        self.vbox.addWidget(self.log)
+
     def _add_project_row(self, project: Project) -> None:
-        row = ProjectRow(project, self._save)
+        row = ProjectRow(project, self._save, self._log_message)
         self.vbox.addWidget(row)
+
+    def _log_message(self, msg: str) -> None:
+        """Append a message to the log widget."""
+        self.log.appendPlainText(msg)
 
     def _add_project(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Select Node.js Project")
