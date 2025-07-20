@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QFileDialog,
     QInputDialog,
@@ -31,6 +32,8 @@ class Project:
     port: int = 3000
     # optional extra environment variables required to launch the app
     extra_env: Dict[str, str] = field(default_factory=dict)
+    # name of the environment variable used to pass the port to the app
+    port_var: str = "PORT"
 
     @property
     def name(self) -> str:
@@ -44,9 +47,15 @@ def load_projects(cfg_path: str) -> List[Project]:
         return []
     with open(cfg_path) as fh:
         data = json.load(fh)
-    # create Project objects while passing optional environment variables
+    # create Project objects while passing optional environment variables and
+    # the port variable name
     return [
-        Project(p["path"], p.get("port", 3000), p.get("env", {}))
+        Project(
+            p["path"],
+            p.get("port", 3000),
+            p.get("env", {}),
+            p.get("port_var", "PORT"),
+        )
         for p in data.get("projects", [])
     ]
 
@@ -55,7 +64,12 @@ def save_projects(cfg_path: str, projects: List[Project]) -> None:
     """Persist project configuration to JSON."""
     data = {
         "projects": [
-            {"path": p.path, "port": p.port, "env": p.extra_env}
+            {
+                "path": p.path,
+                "port": p.port,
+                "env": p.extra_env,
+                "port_var": p.port_var,
+            }
             for p in projects
         ]
     }
@@ -84,6 +98,12 @@ class ProjectRow(QWidget):
         self.port_spin.valueChanged.connect(self._port_changed)
         layout.addWidget(self.port_spin)
 
+        # environment variable name for the port
+        self.port_var_edit = QLineEdit(project.port_var)
+        self.port_var_edit.setMaximumWidth(80)
+        self.port_var_edit.editingFinished.connect(self._port_var_changed)
+        layout.addWidget(self.port_var_edit)
+
         update_btn = QPushButton("Update")
         update_btn.clicked.connect(self._update)
         layout.addWidget(update_btn)
@@ -104,6 +124,12 @@ class ProjectRow(QWidget):
     def _port_changed(self, value: int) -> None:
         """Update the project port and save configuration."""
         self.project.port = value
+        self.save_cb()
+
+    def _port_var_changed(self) -> None:
+        """Persist changes to the port environment variable name."""
+        text = self.port_var_edit.text().strip() or "PORT"
+        self.project.port_var = text
         self.save_cb()
 
     def _update(self) -> None:
@@ -145,13 +171,14 @@ class ProjectRow(QWidget):
     def _run(self) -> None:
         """Launch the app via PM2 using 'npm start'."""
         env = os.environ.copy()
-        env["PORT"] = str(self.project.port)
+        # expose the configured port variable for the app to read
+        env[self.project.port_var] = str(self.project.port)
         # include any additional environment variables configured for the project
         env.update(self.project.extra_env)
         cmd = ["pm2", "start", "npm", "--name", self.project.name, "--", "start"]
         self.status_label.setText("Running...")
         self.log_cb(
-            f"Running: {' '.join(cmd)} in {self.project.path} with PORT={self.project.port}"
+            f"Running: {' '.join(cmd)} in {self.project.path} with {self.project.port_var}={self.project.port}"
         )
         result = subprocess.run(
             cmd,
@@ -204,6 +231,14 @@ class MainWindow(QMainWindow):
         port, ok = QInputDialog.getInt(self, "Port", "Port:", 3000, 1, 65535)
         if not ok:
             return
+        port_var, ok = QInputDialog.getText(
+            self,
+            "Port Variable",
+            "Environment variable for the port:",
+            text="PORT",
+        )
+        if not ok or not port_var:
+            port_var = "PORT"
         # allow the user to enter optional environment variables during creation
         env_text, _ = QInputDialog.getMultiLineText(
             self,
@@ -218,7 +253,7 @@ class MainWindow(QMainWindow):
             key, val = line.split("=", 1)
             env_vars[key.strip()] = val.strip()
 
-        project = Project(path, port, env_vars)
+        project = Project(path, port, env_vars, port_var)
         self.projects.append(project)
         self._add_project_row(project)
         self._save()

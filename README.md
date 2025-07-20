@@ -5,19 +5,21 @@ This project provides a small PySide6 GUI for working with the [PM2](https://pm2
 ## Configuration file
 
 Projects are stored in `projects.json` and can include optional environment
-variables:
+variables and a custom name for the port variable:
 
 ```json
 {
   "projects": [
-{ "path": "/path/to/app", "port": 3000, "env": { "NODE_ENV": "production" } }
+{ "path": "/path/to/app", "port": 3000, "port_var": "PORT", "env": { "NODE_ENV": "production" } }
   ]
 }
 ```
 
 Each entry defines the folder containing the Node.js project and the port to use
-when starting it.  Environment variables may be provided in an optional `env`
-object and will be passed to the process when launched.
+when starting it.  The `port_var` field specifies the environment variable name
+used to pass the port to the application (default `PORT`).  Additional
+environment variables may be provided in an optional `env` object and will be
+passed to the process when launched.
 
 ## Setup
 
@@ -46,10 +48,11 @@ For every configured project you can:
 - **Update** – run `git pull origin main` inside the project directory.
 - **Run** – start the project with `pm2` using `npm start` and the selected port.
   Additional environment variables can be configured per project via the **Env**
-  button.
+  button.  The port variable name can be edited directly in the project row.
 
 New projects can be added using the **Add Project** button.
-When adding a project you can also supply environment variables if required.
+When adding a project you can also supply environment variables and choose the
+port variable name if required.
 
 The application requires a graphical environment capable of running Qt applications.
 
