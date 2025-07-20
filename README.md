@@ -40,6 +40,9 @@ PM2 must also be installed globally:
 ```bash
 npm install -g pm2
 ```
+If `pm2` isn't found after installation, ensure that the global npm binaries
+directory (for example `%APPDATA%\npm` on Windows) is included in your `PATH`
+environment variable and restart the terminal.
 
 ## Usage
 
