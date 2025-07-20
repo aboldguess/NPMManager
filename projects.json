@@ -3,7 +3,10 @@
     {
       "path": "/path/to/project1",
       "port": 3000,
-      "name": "project1"
+      "name": "project1",
+      "env": {
+        "PORT": "3000"
+      }
     },
     {
       "path": "/path/to/project2",
