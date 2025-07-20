@@ -9,13 +9,23 @@ Projects are stored in `projects.json`:
 ```json
 {
   "projects": [
-    { "path": "/path/to/app", "port": 3000, "name": "my-app" }
+    {
+      "path": "/path/to/app",
+      "port": 3000,
+      "name": "my-app",
+      "env": {
+        "DEBUG": "1",
+        "SECRET": "value"
+      }
+    }
   ]
 }
 ```
 
 Each entry defines the folder containing the Node.js project, the port to use
-when starting it and an optional custom PM2 process name.
+when starting it, an optional custom PM2 process name and an optional
+`env` object with additional environment variables that will be passed to the
+process when launched.
 
 ## Setup
 
@@ -45,7 +55,9 @@ For every configured project you can:
 - **Run** – start the project with `pm2` using `npm start` and the selected port.
 - **Stop** – stop the running PM2 process.
 - **Change Name** – set a custom name for the PM2 process.
+- **Env** – configure additional environment variables.
 
-New projects can be added using the **Add Project** button.
+New projects can be added using the **Add Project** button. When adding a
+project you will be prompted for environment variables in `KEY=VALUE` format.
 
 The application requires a graphical environment capable of running Qt applications.

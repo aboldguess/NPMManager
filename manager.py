@@ -3,8 +3,8 @@ import os
 import subprocess
 import sys
 
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field
+from typing import Dict, List, Optional
 
 from PySide6.QtWidgets import (
     QApplication,
@@ -31,6 +31,8 @@ class Project:
     port: int = 3000
     # Optional PM2 process name override. When None the folder name is used.
     custom_name: Optional[str] = None
+    # Optional additional environment variables used when running the project
+    env: Dict[str, str] = field(default_factory=dict)
 
     @property
     def name(self) -> str:
@@ -48,7 +50,13 @@ def load_projects(cfg_path: str) -> List[Project]:
     # Map loaded JSON dictionaries to Project instances, preserving any
     # custom name that was saved previously.
     return [
-        Project(p["path"], p.get("port", 3000), p.get("name"))
+        Project(
+            p["path"],
+            p.get("port", 3000),
+            p.get("name"),
+            # Load optional environment variable mapping
+            p.get("env", {}),
+        )
         for p in data.get("projects", [])
     ]
 
@@ -63,6 +71,8 @@ def save_projects(cfg_path: str, projects: List[Project]) -> None:
                 "path": p.path,
                 "port": p.port,
                 "name": p.custom_name,
+                # Include environment variables only when defined
+                "env": p.env if p.env else None,
             }.items() if v is not None}
             for p in projects
         ]
@@ -112,6 +122,10 @@ class ProjectRow(QWidget):
         rename_btn.clicked.connect(self._change_name)
         layout.addWidget(rename_btn)
 
+        env_btn = QPushButton("Env")
+        env_btn.clicked.connect(self._edit_env)
+        layout.addWidget(env_btn)
+
         # status label to display the last command outcome
         self.status_label = QLabel("Idle")
         layout.addWidget(self.status_label)
@@ -140,6 +154,8 @@ class ProjectRow(QWidget):
         """Launch the app via PM2 using 'npm start'."""
         env = os.environ.copy()
         env["PORT"] = str(self.project.port)
+        # Merge in any user-defined environment variables
+        env.update(self.project.env)
         cmd = ["pm2", "start", "npm", "--name", self.project.name, "--", "start"]
         self.status_label.setText("Running...")
         self.log_cb(f"Running: {' '.join(cmd)} in {self.project.path}")
@@ -176,6 +192,26 @@ class ProjectRow(QWidget):
             return
         self.project.custom_name = new_name
         self.name_label.setText(self.project.name)
+        self.save_cb()
+
+    def _edit_env(self) -> None:
+        """Allow editing of custom environment variables."""
+        # Prepare a multi-line string in KEY=VALUE format
+        current = "\n".join(f"{k}={v}" for k, v in self.project.env.items())
+        text, ok = QInputDialog.getMultiLineText(
+            self,
+            "Environment Variables",
+            "KEY=VALUE per line:",
+            current,
+        )
+        if not ok:
+            return
+        env = {}
+        for line in text.splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip()
+        self.project.env = env
         self.save_cb()
 
 
@@ -225,7 +261,21 @@ class MainWindow(QMainWindow):
         name, ok = QInputDialog.getText(self, "Process Name", "Process name:")
         if not ok or not name:
             name = None
-        project = Project(path, port, name)
+        # Ask for optional environment variables
+        env_text, ok = QInputDialog.getMultiLineText(
+            self,
+            "Environment Variables",
+            "KEY=VALUE per line:",
+        )
+        if not ok:
+            env = {}
+        else:
+            env = {}
+            for line in env_text.splitlines():
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    env[k.strip()] = v.strip()
+        project = Project(path, port, name, env)
         self.projects.append(project)
         self._add_project_row(project)
         self._save()
