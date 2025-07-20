@@ -19,7 +19,11 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QMessageBox,
     QPlainTextEdit,
+    QScrollArea,
+    QMenuBar,
 )
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "projects.json")
 
@@ -122,7 +126,7 @@ class ProjectRow(QWidget):
         rename_btn.clicked.connect(self._change_name)
         layout.addWidget(rename_btn)
 
-        env_btn = QPushButton("Env")
+        env_btn = QPushButton("Edit Env")
         env_btn.clicked.connect(self._edit_env)
         layout.addWidget(env_btn)
 
@@ -247,30 +251,71 @@ class MainWindow(QMainWindow):
         self.projects = projects
         self.setWindowTitle("PM2 Frontend")
 
+        # Build a simple menu providing common actions
+        menubar = QMenuBar(self)
+        self.setMenuBar(menubar)
+        file_menu = menubar.addMenu("File")
+
+        add_act = QAction("Add Project", self)
+        add_act.triggered.connect(self._add_project)
+        file_menu.addAction(add_act)
+
+        clear_act = QAction("Clear Log", self)
+        clear_act.triggered.connect(self._clear_log)
+        file_menu.addAction(clear_act)
+
+        quit_act = QAction("Quit", self)
+        quit_act.triggered.connect(self.close)
+        file_menu.addAction(quit_act)
+
         central = QWidget()
         self.setCentralWidget(central)
-        self.vbox = QVBoxLayout()
-        central.setLayout(self.vbox)
+        main_layout = QVBoxLayout()
+        central.setLayout(main_layout)
+
+        # Container for project rows is placed inside a scroll area so
+        # the interface remains usable when many projects are configured.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        self.list_widget = QWidget()
+        self.list_layout = QVBoxLayout()
+        self.list_layout.setAlignment(Qt.AlignTop)
+        self.list_widget.setLayout(self.list_layout)
+        scroll.setWidget(self.list_widget)
+        main_layout.addWidget(scroll)
 
         for project in self.projects:
             self._add_project_row(project)
 
+        # Control buttons placed above the log area for quick access
+        # Row of buttons with common actions
+        btn_row = QHBoxLayout()
         add_btn = QPushButton("Add Project")
         add_btn.clicked.connect(self._add_project)
-        self.vbox.addWidget(add_btn)
+        btn_row.addWidget(add_btn)
 
-        # log widget displays executed commands and their output
+        clear_btn = QPushButton("Clear Log")
+        clear_btn.clicked.connect(self._clear_log)
+        btn_row.addWidget(clear_btn)
+        main_layout.addLayout(btn_row)
+
+        # Log widget displays executed commands and their output
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
-        self.vbox.addWidget(self.log)
+        main_layout.addWidget(self.log)
 
     def _add_project_row(self, project: Project) -> None:
         row = ProjectRow(project, self._save, self._log_message)
-        self.vbox.addWidget(row)
+        # Each project is represented by a row inside the scroll area
+        self.list_layout.addWidget(row)
 
     def _log_message(self, msg: str) -> None:
         """Append a message to the log widget."""
         self.log.appendPlainText(msg)
+
+    def _clear_log(self) -> None:
+        """Remove all text from the log widget."""
+        self.log.clear()
 
     def _add_project(self) -> None:
         # Ask the user for a project directory
@@ -305,6 +350,7 @@ class MainWindow(QMainWindow):
         self._save()
 
     def _save(self) -> None:
+        """Write the current configuration to disk."""
         save_projects(CONFIG_FILE, self.projects)
 
 
