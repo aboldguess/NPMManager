@@ -43,6 +43,9 @@ npm install -g pm2
 If `pm2` isn't found after installation, ensure that the global npm binaries
 directory (for example `%APPDATA%\npm` on Windows) is included in your `PATH`
 environment variable and restart the terminal.
+The application checks for `pm2` on startup and before running or stopping
+projects. If it is missing you will see a clear error message explaining how to
+install it.
 
 ## Usage
 

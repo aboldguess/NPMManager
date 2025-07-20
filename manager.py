@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+from shutil import which
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
@@ -43,6 +44,11 @@ class Project:
         """Return the PM2 process name."""
         # Use the custom name if provided, otherwise fallback to folder name
         return self.custom_name or os.path.basename(os.path.abspath(self.path))
+
+
+def command_available(cmd: str) -> bool:
+    """Return True if an executable is found in PATH."""
+    return which(cmd) is not None
 
 
 def load_projects(cfg_path: str) -> List[Project]:
@@ -164,6 +170,20 @@ class ProjectRow(QWidget):
 
     def _run(self) -> None:
         """Launch the app via PM2 using 'npm start'."""
+        # Verify that pm2 is available before attempting to run it so we can
+        # provide a friendlier error message and avoid an exception.
+        if not command_available("pm2"):
+            err = "pm2 not found. Install it with 'npm install -g pm2' and ensure it's on your PATH."
+            self.log_cb(err)
+            self.status_label.setText("Error")
+            QMessageBox.critical(self, self.project.name, err)
+            return
+        if not command_available("npm"):
+            err = "npm not found. Is Node.js installed and on your PATH?"
+            self.log_cb(err)
+            self.status_label.setText("Error")
+            QMessageBox.critical(self, self.project.name, err)
+            return
         env = os.environ.copy()
         env["PORT"] = str(self.project.port)
         # Merge in any user-defined environment variables
@@ -191,6 +211,13 @@ class ProjectRow(QWidget):
 
     def _stop(self) -> None:
         """Stop the PM2 process if it is running."""
+        # Ensure pm2 is present before invoking it to prevent runtime errors
+        if not command_available("pm2"):
+            err = "pm2 not found. Install it with 'npm install -g pm2' and ensure it's on your PATH."
+            self.log_cb(err)
+            self.status_label.setText("Error")
+            QMessageBox.critical(self, self.project.name, err)
+            return
         # Invoke PM2 to stop the process by name
         cmd = ["pm2", "stop", self.project.name]
         self.status_label.setText("Stopping...")
@@ -356,6 +383,11 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    # Warn early if pm2 is missing so the user can fix their environment
+    if not command_available("pm2"):
+        QMessageBox.critical(None, "PM2 Missing", (
+            "pm2 was not found. Install it with 'npm install -g pm2' and ensure "
+            "the installation directory is listed in your PATH."))
     projects = load_projects(CONFIG_FILE)
     window = MainWindow(projects)
     window.show()
