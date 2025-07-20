@@ -47,8 +47,26 @@ class Project:
 
 
 def command_available(cmd: str) -> bool:
-    """Return True if an executable is found in PATH."""
-    return which(cmd) is not None
+    """Return True if an executable is found in PATH.
+
+    On Windows the global npm binaries directory is not always included in
+    PATH by default.  When ``cmd`` is not found we additionally check the
+    standard ``%APPDATA%\npm`` folder and update ``PATH`` so subsequent calls
+    can locate the executable.
+    """
+    if which(cmd):
+        return True
+
+    # Windows specific fallback for tools like pm2 installed with ``npm -g``
+    if os.name == "nt":
+        npm_dir = os.path.join(os.environ.get("APPDATA", ""), "npm")
+        candidate = os.path.join(npm_dir, f"{cmd}.cmd")
+        if os.path.exists(candidate):
+            # Prepend the npm directory to PATH so subprocess can find the exe
+            os.environ["PATH"] = npm_dir + os.pathsep + os.environ.get("PATH", "")
+            return True
+
+    return False
 
 
 def load_projects(cfg_path: str) -> List[Project]:
